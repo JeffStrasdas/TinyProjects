@@ -191,7 +191,68 @@ def new_reparse(Root):
         return (str)(Root)
 
 
-                        
+def Simplify(Root):
+    isNumber = []    
+    # find all numbers recursively
+    for i in range(len(Root)):
+        if type(Root[i]) == str:
+            try:
+                (int)(Root[i])
+                isNumber.append(True)
+            except:
+                isNumber.append(False)
+        else:
+            Root[i] = Simplify(Root[i])
+            if type(Root[i]) == str:
+                try:
+                    (int)(Root[i])
+                    isNumber.append(True)
+                except:
+                    isNumber.append(False)
+            else:
+                isNumber.append(False)
+    
+    
+    output = []
+    # calculate numbers, leave variables and nested operations untouched
+    temp = 0
+    # calulate addition
+    if Root[0] == '+':
+        output = ['+']
+        for i in range(1,len(Root)):
+            if isNumber[i]:
+                temp += (int)(Root[i])
+            else:
+                output.append(Root[i])
+        output.append(temp)
+    # calulate multiplication
+    elif Root[0] == '*':
+        output = ['*']
+        temp = 1
+        for i in range(1,len(Root)):
+            if isNumber[i]:
+                temp *= (int)(Root[i])
+            else:
+                output.append(Root[i])
+        output.append(temp)
+    # calulate power of
+    elif Root[0] == '^':
+        output = ['^']
+        temp = None
+        for i in range(1,len(Root)):
+            if temp == None:
+                temp = (int)(Root[i])
+            elif isNumber[i]:
+                temp = temp ** (int)(Root[i])
+            else:
+                output.append(Root[i])
+        output.append(temp)
+
+    # only one element left, return single element
+    if len(output) == 2:
+        return (str)(output[1])
+    return output
+    
 def main():
     test = "55 - 12 - 3 + 1 +1 - 2 + 2 * x - z"
     test = trim(test)
