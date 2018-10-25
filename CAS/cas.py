@@ -247,11 +247,41 @@ def Simplify(Root):
             else:
                 output.append(Root[i])
         output.append(temp)
+    # ignore any unknown operations or special symbols
+    else:
+        output = Root
 
     # only one element left, return single element
     if len(output) == 2:
         return (str)(output[1])
     return output
+
+
+# Finds the path of all occurences of variable in Root
+# example:
+#        Find(new_parse(" 1 + x = 2 * x^3 "),'x')
+# or
+#        Find(['=', ['+', '1', 'x '], ['*', ' 2', ['^', 'x', '3']]])
+# returns
+#        [2, [2, [1]]]
+def Find(Root,variable):
+    path = []
+    for i in range(len(Root)):
+        if type(Root[i]) == list:
+            temp = Find(Root[i],variable)
+            if len(temp) > 0:
+                path.append(i)
+                path.append(temp)
+#                for t in temp:
+#                    path.append(t)
+        elif type(Root[i]) == str:
+            if Root[i] == variable:
+#                if len(path) == 0:
+#                    return [i]
+                path.append(i)
+#                return path      
+    return path
+    
     
 def main():
     test = "55 - 12 - 3 + 1 +1 - 2 + 2 * x - z"
