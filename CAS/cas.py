@@ -127,7 +127,7 @@ def Eval(Input):
 # new data format, inspired by lisp
 # ['type',[data1,data2,data3,...]]
 # 1+2+3 -> ['+',1,2,3]
-def new_parse(text,root = True, op = ['+','*','^']):
+def new_parse(text,root = True, op = ['+','*','^'],special = ['(',')']):
     output = []
     if root:
         # classify the type of input
@@ -182,7 +182,12 @@ def new_reparse(Root):
         if len(Root) >= 3:
             temp = ""
             for a in Root[1:-1]:
-                temp += new_reparse(a) + Root[0]
+                if Root[0] == '*' and type(a) == list and a[0] == '+':
+                    temp += "("
+                    temp += new_reparse(a)
+                    temp += ") * "
+                else:
+                    temp += new_reparse(a) + Root[0]
             temp += new_reparse(Root[-1])
             return temp
         else:
@@ -197,7 +202,7 @@ def Simplify(Root):
     for i in range(len(Root)):
         if type(Root[i]) == str:
             try:
-                (int)(Root[i])
+                (float)(Root[i])
                 isNumber.append(True)
             except:
                 isNumber.append(False)
@@ -205,7 +210,7 @@ def Simplify(Root):
             Root[i] = Simplify(Root[i])
             if type(Root[i]) == str:
                 try:
-                    (int)(Root[i])
+                    (float)(Root[i])
                     isNumber.append(True)
                 except:
                     isNumber.append(False)
@@ -221,32 +226,33 @@ def Simplify(Root):
         output = ['+']
         for i in range(1,len(Root)):
             if isNumber[i]:
-                temp += (int)(Root[i])
+                temp += (float)(Root[i])
             else:
                 output.append(Root[i])
-        output.append(temp)
+        output.append((str)(temp))
     # calulate multiplication
     elif Root[0] == '*':
         output = ['*']
         temp = 1
         for i in range(1,len(Root)):
             if isNumber[i]:
-                temp *= (int)(Root[i])
+                temp *= (float)(Root[i])
             else:
                 output.append(Root[i])
-        output.append(temp)
+        output.append((str)(temp))
     # calulate power of
     elif Root[0] == '^':
         output = ['^']
         temp = None
         for i in range(1,len(Root)):
-            if temp == None:
-                temp = (int)(Root[i])
-            elif isNumber[i]:
-                temp = temp ** (int)(Root[i])
+            if isNumber[i]:
+                if temp == None:
+                    temp = (float)(Root[i])
+                else:
+                    temp = temp ** (float)(Root[i])
             else:
                 output.append(Root[i])
-        output.append(temp)
+        output.append((str)(temp))
     # ignore any unknown operations or special symbols
     else:
         output = Root
@@ -281,7 +287,81 @@ def Find(Root,variable):
                 path.append(i)
 #                return path      
     return path
+
+def Solve(Root,variable,text=False):
+    if type(Root) == str:
+        Root = new_parse(Root)
+        text = True
+    # Find path of variable
+    path = Find(Root,variable)
+    # if the path is trivial, then there's nothing to solve
+    if len(path) == 1:
+        if text:
+            return new_reparse(Root)
+        else:
+            return Root
+    # make sure it deals with either an equation or an inequation
+    equation = True
+    if Root[0] == '=':
+        equation = True
+    elif Root[0] == '>' or Root[0] == '<':
+        equation = False
+    else:
+        print("not an (in-)equation")
+        return
     
+    tempside  = []
+    leftside  = Root[    path[0]]
+    rightside = Root[3 - path[0]]
+#    print(20*"=")
+#    print(Root,variable)
+#    print(path)
+#    print(leftside,rightside)
+#    print(20*"=")
+    temp = path[1]
+    
+    # collect all terms which are to be moved to the right side
+    for i in range(len(leftside)):
+        if not i == temp[0]:
+            tempside.append(leftside[i])
+    
+    # update both sides        
+    leftside = leftside[temp[0]]
+    # if rightside is an expression
+    if len(rightside) >= 3:
+        if tempside[0] == '+':
+            # if rightside is not already adding things, then nest outermost operations inside an addition
+            if not rightside[0] == '+':
+                rightside = ['+',rightside]
+            if len(tempside) == 2:
+                rightside.append(['*','-1',tempside[1]])
+            else:
+                rightside.append(['*','-1',tempside])
+        elif tempside[0] == '*':
+            # if rightside is not already multiplying things, then nest outermost operations inside a multiplication
+            if not rightside[0] == '*':
+                rightside = ['*',rightside]
+            if len(tempside) == 2:
+                rightside.append(['^',tempside[1],'-1'])
+            else:
+                rightside.append(['^',tempside,'-1'])
+    # if rightside is a number/variable
+    else:
+        if tempside[0] == '+':
+            rightside = ['+',rightside]
+            if len(tempside) == 2:
+                rightside.append(['*','-1',tempside[1]])
+            else:
+                rightside.append(['*','-1',tempside])
+        elif tempside[0] == '*':
+            rightside = ['*',rightside]
+            if tempside[0] == '*':
+                if len(tempside) == 2:
+                    rightside.append(['^',tempside[1],'-1'])
+                else:
+                    rightside.append(['^',tempside,'-1'])
+        
+    return Solve([Root[0],leftside,Simplify(rightside)],variable,text)
     
 def main():
     test = "55 - 12 - 3 + 1 +1 - 2 + 2 * x - z"
