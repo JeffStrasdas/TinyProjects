@@ -127,7 +127,7 @@ def Eval(Input):
 # new data format, inspired by lisp
 # ['type',[data1,data2,data3,...]]
 # 1+2+3 -> ['+',1,2,3]
-def new_parse(text,root = True, op = ['+','*','^'],special = ['(',')']):
+def new_parse(text,root = True, op = ['+','*','^'], special = ['(',')']):
     output = []
     if root:
         # classify the type of input
@@ -147,27 +147,95 @@ def new_parse(text,root = True, op = ['+','*','^'],special = ['(',')']):
         # actually parse the rest
 
         # make a list of all occurences of the current operator in the string
-        ind_op   = [-1,text.find(op[0])]
+        ind_op = [-1,text.find(op[0])]
         while ind_op[-1] > -1:
             ind_op.append(text.find(op[0],ind_op[-1]+1))
+            
+        # make a list of all special characters (which have a beginning and an end)
+        ind_sp = [text.find(special[0])]
+        while ind_sp[-1] > -1:
+            ind_sp.append(text.find(special[1],ind_sp[-1]))
+            if ind_sp[-1] == -1:
+                print("uneven special operators...")
+                ind_sp.pop()
+                break
+            ind_sp.append(text.find(special[0],ind_sp[-1]))
         # remove last -1 element
         ind_op.pop()
+        ind_sp[-1] = len(text)
         
+        # remove everything inbetween brackets
+#        i = 0
+#        k = 0
+#        while i  < len(ind_sp)-1 and k < len(ind_op):
+#            if ind_sp[i] < ind_op[k] and ind_op[k] < ind_sp[i+1]:
+#                ind_op.pop(k)
+#            elif ind_op[k] > ind_sp[i+1]:
+#                i += 2
+#            else:
+#                k += 1
+        
+        special_index = 0
         # add all terms to output
         if len(ind_op) > 1:
             output.append([op[0]])
-            for i in range(len(ind_op)-1):
-                output[-1].append(text[ind_op[i]+1:ind_op[i+1]])
-            output[-1].append(text[ind_op[-1]+1:])
+            i = 0
+            while i  < len(ind_op)-1:
+                # catch special op and put it in a nested list
+                
+                # if a bracket got skipped, increase index
+                while special_index < len(ind_sp)-1 and ind_sp[special_index+1] < ind_op[i+1]:
+                    special_index += 2    
+                # check if operation is inside a bracket
+                if ind_sp[special_index] < ind_op[i+1]:
+                    output[-1].append(text[ind_op[i]+1:ind_sp[special_index]])
+                    output[-1].append(new_parse(text[ind_sp[special_index]+1 : ind_sp[special_index+1]],False))
+                    # find next valid i
+                    while ind_op[i] < ind_sp[special_index+1] and i < len(ind_op) - 1:
+                        i += 1
+                    special_index += 2
+                else:
+                    output[-1].append(text[ind_op[i]+1:ind_op[i+1]])
+                    i += 1
+            if len(ind_sp) == 1 or ind_op[-1] > ind_sp[-2]:
+                output[-1].append(text[ind_op[-1]+1:])
+            elif ind_sp[-2] < len(text)-1:
+                output[-1].append(text[ind_sp[-2]+1:])
         
-        # remove used operator
+        # done with current operation, remove it
         op = op[1:]
+        
+        
         
         # continue with other operators
         if len(op) > 0:
             if len(output) > 0:
-                for i in range(1,len(output[-1])):
-                    output[-1][i] = new_parse(output[-1][i],False,op)
+                i = 1
+                while i < len(output[-1]):
+                    # skip lists as they are already parsed
+                    if type(output[-1][i]) == str:
+                        # remove zero-length entries
+                        if len(output[-1][i]) > 0:
+                            output[-1][i] = new_parse(output[-1][i],False,op)
+                        else:
+                            output[-1].pop(i)
+                            i -= 1
+                    else:
+                        print(output)
+                        # inject into neighbours
+                        
+                        #left
+                        if i > 2 and type(output[-1][i-1]) == list:
+                            output[-1][i-1].append(output[-1][i])
+                            output[-1].pop(i)
+                            i -= 1
+                        # right
+                        if i < len(output[-1])-1 and len(output[-1][i+1]) > 0 and output[-1][i+1][0] in op:
+                            output[-1][i+1] = new_parse(output[-1][i+1],False,op)
+                            output[-1][i+1].append(output[-1][i])
+                            output[-1].pop(i)
+                    i += 1
+                    
             else:
                 return new_parse(text,False,op)
         
